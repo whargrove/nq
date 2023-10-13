@@ -1,5 +1,7 @@
 use std::collections::HashMap;
-use std::net::SocketAddr;
+use std::env;
+use std::net::{Ipv4Addr, SocketAddr};
+use std::str::FromStr;
 
 use futures_util::{SinkExt, StreamExt};
 use http_body_util::combinators::BoxBody;
@@ -89,9 +91,10 @@ fn full<T: Into<Bytes>>(chunk: T) -> BoxBodyT {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-
-    // We create a TcpListener and bind it to 127.0.0.1:3000
+    let bind_addr = env::var("BIND_ADDR")
+        .map(|addr| Ipv4Addr::from_str(&addr).expect("BIND_ADDR is not a valid IPv4 address"))
+        .unwrap_or(Ipv4Addr::LOCALHOST);
+    let addr = SocketAddr::from((bind_addr, 3000));
     let listener = TcpListener::bind(addr).await?;
 
     // We start a loop to continuously accept incoming connections
