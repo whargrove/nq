@@ -1,2 +1,2 @@
 - [ ] TLS
-- [ ] Docker Build and Push on GHA
+- [X] Docker Build and Push on GHA
