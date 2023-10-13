@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
 
-use futures_util::StreamExt;
+use futures_util::{SinkExt, StreamExt};
 use http_body_util::combinators::BoxBody;
 use http_body_util::{Full, StreamBody};
 use hyper::body::{Bytes, Frame, Incoming};
@@ -60,6 +60,7 @@ async fn nq_service(req: Request<Incoming>) -> Result<Response<BoxBodyT>> {
         (&Method::GET, "/api/v1/config") => config(req),
         (&Method::GET, "/api/v1/small") => small(req),
         (&Method::GET, "/api/v1/large") => large(req).await,
+        (&Method::POST, "/api/v1/upload") => upload(req).await,
         _ => Ok(Response::builder()
             .status(StatusCode::NOT_FOUND)
             .body(full(NOTFOUND))
@@ -67,6 +68,16 @@ async fn nq_service(req: Request<Incoming>) -> Result<Response<BoxBodyT>> {
     }
 }
 
+async fn upload(req: Request<Incoming>) -> Result<Response<BoxBodyT>> {
+    let mut drain = futures::sink::drain();
+    drain.send(req.into_body()).await?;
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .body(full(EMPTY))
+        .unwrap())
+}
+
+static EMPTY: &[u8] = b"";
 static NOTFOUND: &[u8] = b"Not Found";
 
 use http_body_util::BodyExt;
