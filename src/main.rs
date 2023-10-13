@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::env;
+use std::fmt::Display;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::str::FromStr;
 
@@ -17,10 +18,11 @@ use serde::Serialize;
 use tokio::net::TcpListener;
 
 fn config(_: Request<hyper::body::Incoming>) -> Result<Response<BoxBodyT>> {
+    let app_info = AppInfo::from_env();
     let urls = HashMap::from([
-        ("small_download_url", "http://localhost:3000/api/v1/small"),
-        ("large_download_url", "http://localhost:3000/api/v1/large"),
-        ("upload_url", "http://localhost:3000/api/v1/upload"),
+        ("small_download_url", format!("{}/api/v1/small", app_info)),
+        ("large_download_url", format!("{}/api/v1/large", app_info)),
+        ("upload_url", format!("{}/api/v1/upload", app_info)),
     ]);
     let config = Config { version: 1, urls };
     let json = serde_json::to_string(&config).expect("Unable to serialize");
@@ -50,7 +52,7 @@ async fn large(_: Request<Incoming>) -> Result<Response<BoxBodyT>> {
 #[derive(Serialize, Debug)]
 struct Config {
     version: u8,
-    urls: HashMap<&'static str, &'static str>,
+    urls: HashMap<&'static str, String>,
 }
 
 type GenericError = Box<dyn std::error::Error + Send + Sync>;
@@ -87,6 +89,51 @@ fn full<T: Into<Bytes>>(chunk: T) -> BoxBodyT {
     Full::new(chunk.into())
         .map_err(|never| match never {})
         .boxed()
+}
+
+struct AppInfo {
+    protocol: String,
+    hostname: String,
+    port: Option<u16>,
+}
+
+impl AppInfo {
+    fn from_env() -> Self {
+        let port = env::var("PORT")
+            .map(|port| {
+                port.parse::<u16>()
+                    .expect("PORT is not a valid port number")
+            })
+            .unwrap_or(3000);
+
+        // if the port is 443, we use TLS and the protocol will be HTTPS
+        // otherwise fallback to HTTP and don't worry about TLS
+        let protocol = if port == 443 {
+            "https".to_string()
+        } else {
+            "http".to_string()
+        };
+
+        let hostname = env::var("HOSTNAME").unwrap_or_else(|_| "localhost".to_string());
+
+        AppInfo {
+            protocol,
+            hostname,
+            port: match port {
+                80 | 443 => None,
+                _ => Some(port),
+            },
+        }
+    }
+}
+
+impl Display for AppInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.port {
+            Some(port) => write!(f, "{}://{}:{}", self.protocol, self.hostname, port),
+            None => write!(f, "{}://{}", self.protocol, self.hostname),
+        }
+    }
 }
 
 #[tokio::main]
