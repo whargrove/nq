@@ -1,3 +1,6 @@
+extern crate pretty_env_logger;
+#[macro_use] extern crate log;
+
 use std::collections::HashMap;
 use std::env;
 use std::fmt::Display;
@@ -60,6 +63,7 @@ type Result<T> = std::result::Result<T, GenericError>;
 type BoxBodyT = http_body_util::combinators::BoxBody<Bytes, hyper::Error>;
 
 async fn nq_service(req: Request<Incoming>) -> Result<Response<BoxBodyT>> {
+    info!("{} {}", req.method(), req.uri().path());
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/api/v1/config") => config(req),
         (&Method::GET, "/api/v1/small") => small(req),
@@ -138,6 +142,8 @@ impl Display for AppInfo {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    pretty_env_logger::init_timed();
+
     let bind_addr = env::var("BIND_ADDR")
         .map(|addr| Ipv4Addr::from_str(&addr).expect("BIND_ADDR is not a valid IPv4 address"))
         .unwrap_or(Ipv4Addr::LOCALHOST);
@@ -153,6 +159,8 @@ async fn main() -> Result<()> {
 
     let addr = SocketAddr::from((bind_addr, port));
     let listener = TcpListener::bind(addr).await?;
+
+    info!("Listening on {}:{}", bind_addr, port);
 
     // We start a loop to continuously accept incoming connections
     loop {
