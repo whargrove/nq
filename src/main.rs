@@ -94,7 +94,17 @@ async fn main() -> Result<()> {
     let bind_addr = env::var("BIND_ADDR")
         .map(|addr| Ipv4Addr::from_str(&addr).expect("BIND_ADDR is not a valid IPv4 address"))
         .unwrap_or(Ipv4Addr::LOCALHOST);
-    let addr = SocketAddr::from((bind_addr, 3000));
+
+    let port = env::var("PORT")
+        .map(|port| {
+            port.parse::<u16>()
+                .expect("PORT is not a valid port number")
+        })
+        .unwrap_or(3000);
+
+    // TODO TLS
+
+    let addr = SocketAddr::from((bind_addr, port));
     let listener = TcpListener::bind(addr).await?;
 
     // We start a loop to continuously accept incoming connections
